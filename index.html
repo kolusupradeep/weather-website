@@ -4,13 +4,50 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Weather App</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
+    <!-- Animation Stage (dynamic weather background) -->
+    <div id="weather-stage" aria-hidden="true">
+      <canvas id="particles"></canvas>
+      <div class="clouds" id="clouds"></div>
+      <div class="overlay fog" id="fog"></div>
+      <div class="overlay flash" id="flash"></div>
+      <div class="overlay sun" id="sun"></div>
+      <div class="overlay sunbeams" id="sunbeams"></div>
+    </div>
     <div class="card">
+      <div class="toolbar" aria-label="Quick settings">
+        <div class="unit-toggle" role="group" aria-label="Temperature units">
+          <button class="unit-opt" type="button" data-u="metric" aria-pressed="true">°C</button>
+          <button class="unit-opt" type="button" data-u="imperial" aria-pressed="false">°F</button>
+        </div>
+        <button class="btn-geo" type="button" title="Use my location" aria-pressed="false">Use my location</button>
+      </div>
       <div class="search">
         <input type="text" placeholder="enter city name" spellcheck="false" />
-        <button><img src="images/search.png" /></button>
+        <button class="btn-search" type="button" aria-label="Search" title="Search">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/>
+            <path d="M20 20L16.65 16.65" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+      <!-- Animated background layer for weather conditions -->
+      <div class="anim-layer" aria-hidden="true"></div>
+      <!-- Autocomplete suggestions -->
+      <div class="suggestions" role="listbox" aria-label="City suggestions"></div>
+      <!-- Empty state (shown until user searches or uses location) -->
+      <div class="empty-state" aria-live="polite">
+        <h2 class="empty-title">Check the forecast</h2>
+        <p class="empty-sub">Type a city or use your location to get started.</p>
+        <div class="empty-hints">
+          <span>🌍 Try: London, New York, Kochi</span>
+          <span>📍 Or click "Use my location"</span>
+        </div>
       </div>
       <div class="error">
         <p>Invalid city name</p>
@@ -36,75 +73,613 @@
           </div>
         </div>
       </div>
+      <!-- Centered test button (appears only after data is fetched) -->
+      <div class="test-wrap" aria-live="polite">
+        <button class="btn-test" type="button" title="Run test">Run test</button>
+      </div>
     </div>
     <script>
       const apikey = "6113f9ff1df8451a9f7fe68e5bd391ac";
-      const apiurl =
-        "https://api.openweathermap.org/data/2.5/weather?units=metric&q=";
+      const apiurl = "https://api.openweathermap.org/data/2.5/weather?units=metric&q=";
 
       const searchBox = document.querySelector(".search input");
       const searchBtn = document.querySelector(".search button");
       const weatherIcon = document.querySelector(".weather-icon");
+      const suggestionsEl = document.querySelector(".suggestions");
+      const cardEl = document.querySelector(".card");
+      const unitOpts = document.querySelectorAll('.unit-opt');
+      const btnGeo = document.querySelector(".btn-geo");
+      const testWrap = document.querySelector('.test-wrap');
+      const testBtn = document.querySelector('.btn-test');
+
+      let activeIndex = -1;
+
+      function debounce(fn, delay) {
+        let t; return function(...args){ clearTimeout(t); t = setTimeout(()=>fn.apply(this,args), delay); };
+      }
+
+      function getUnits(){ return (localStorage.getItem('units') === 'imperial') ? 'imperial' : 'metric'; }
+      function updateUnitUI(u){
+        unitOpts.forEach(btn=>{
+          const active = btn.dataset.u === u;
+          btn.classList.toggle('active', active);
+          btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+      }
+      function setUnits(u){ localStorage.setItem('units', u); updateUnitUI(u); }
+
+      // Resilient fetch with 1 retry and small backoff; surfaces network errors
+      async function fetchJsonWithRetry(url, opts={}){
+        try{
+          const r1 = await fetch(url, opts);
+          if(r1.ok) return await r1.json();
+          // retry once on 5xx/429
+          if(r1.status>=500 || r1.status===429){
+            await new Promise(res=>setTimeout(res, 500));
+            const r2 = await fetch(url, opts);
+            if(r2.ok) return await r2.json();
+            const t = await r2.text().catch(()=>"");
+            throw new Error(`HTTP ${r2.status} ${r2.statusText} :: ${t}`);
+          } else {
+            const t = await r1.text().catch(()=>"");
+            throw new Error(`HTTP ${r1.status} ${r1.statusText} :: ${t}`);
+          }
+        }catch(err){
+          // network or thrown above
+          throw err;
+        }
+      }
 
       async function checkWeather(city) {
-        const respone = await fetch(apiurl + city + `&appid=${apikey}`);
+        const units = getUnits();
+        const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&units=${units}&appid=${apikey}`;
+        let data;
+        try{
+          data = await fetchJsonWithRetry(url);
+        }catch(err){
+          console.error('Weather fetch failed', { url, error: String(err) });
+          const errEl = document.querySelector('.error');
+          errEl.innerHTML = `<p>Request failed. ${String(err).slice(0,200)}</p>`;
+          errEl.style.display = 'block';
+          document.querySelector('.weather').style.display = 'none';
+          if (testWrap) testWrap.style.display = 'none';
+          return;
+        }
+        document.querySelector(".city").innerHTML = data.name;
+        document.querySelector(".temp").innerHTML = Math.round(data.main.temp) + (getUnits()==='imperial'?'°F':'°C');
+        document.querySelector(".humidity").innerHTML = data.main.humidity + "%";
+        document.querySelector(".wind").innerHTML = (getUnits()==='imperial'? Math.round(data.wind.speed) + " mph" : data.wind.speed + " km/h");
+        const m = data.weather[0].main;
+        weatherIcon.src = m==="Clouds"?"images/clouds.png": m==="Clear"?"images/clear.png": m==="Rain"?"images/rain.png": m==="Drizzle"?"images/drizzle.png": m==="Mist"?"images/mist.png": m==="Snow"?"images/snow.png":"images/clear.png";
+        setTheme(m, data);
+        document.querySelector(".weather").style.display = "block";
+        document.querySelector(".error").style.display = "none";
+        const es = document.querySelector('.empty-state'); if (es) es.style.display = 'none';
+        cardEl.classList.remove('is-empty');
+        if (testWrap) testWrap.style.display = 'flex';
+        try{ localStorage.setItem('lastCity', data.name); }catch(_){ }
+      }
 
-        if (respone.status == 404) {
-          document.querySelector(".error").style.display = "block";
-          document.querySelector(".weather").style.display = "none";
+      async function checkWeatherByCoords(lat, lon) {
+        const units = getUnits();
+        const url = `https://api.openweathermap.org/data/2.5/weather?units=${units}&lat=${lat}&lon=${lon}&appid=${apikey}`;
+        let data;
+        try{
+          data = await fetchJsonWithRetry(url);
+        }catch(err){
+          console.error('Weather fetch by coords failed', { url, error: String(err) });
+          const errEl = document.querySelector('.error');
+          errEl.innerHTML = `<p>Location request failed. ${String(err).slice(0,200)}</p>`;
+          errEl.style.display = 'block';
+          document.querySelector('.weather').style.display = 'none';
+          if (testWrap) testWrap.style.display = 'none';
+          return;
+        }
+        document.querySelector(".city").innerHTML = data.name;
+        document.querySelector(".temp").innerHTML = Math.round(data.main.temp) + (getUnits()==='imperial'?'°F':'°C');
+        document.querySelector(".humidity").innerHTML = data.main.humidity + "%";
+        document.querySelector(".wind").innerHTML = (getUnits()==='imperial'? Math.round(data.wind.speed) + " mph" : data.wind.speed + " km/h");
+        const m = data.weather[0].main;
+        weatherIcon.src = m==="Clouds"?"images/clouds.png": m==="Clear"?"images/clear.png": m==="Rain"?"images/rain.png": m==="Drizzle"?"images/drizzle.png": m==="Mist"?"images/mist.png": m==="Snow"?"images/snow.png":"images/clear.png";
+        if (typeof setTheme === 'function') { setTheme(m, data); }
+        document.querySelector(".weather").style.display = "block";
+        document.querySelector(".error").style.display = "none";
+        const es = document.querySelector('.empty-state'); if (es) es.style.display = 'none';
+        cardEl.classList.remove('is-empty');
+        if (testWrap) testWrap.style.display = 'flex';
+        try{ localStorage.setItem('lastCity', data.name); }catch(_){ }
+      }
+
+      // Geolocation toggle helpers (single definition)
+      function setGeoActive(active){
+        if (active){
+          btnGeo.classList.add('active');
+          btnGeo.setAttribute('aria-pressed','true');
+          btnGeo.textContent = 'Location: On';
+          try{ localStorage.setItem('geo', 'on'); }catch(_){ }
         } else {
-          var data = await respone.json();
-
-          document.querySelector(".city").innerHTML = data.name;
-          document.querySelector(".temp").innerHTML =
-            Math.round(data.main.temp) + "°C";
-          document.querySelector(".humidity").innerHTML =
-            data.main.humidity + "%";
-          document.querySelector(".wind").innerHTML = data.wind.speed + "km/h";
-
-          if (data.weather[0].main == "Clouds") {
-            weatherIcon.src = "images/clouds.png";
-          } else if (data.weather[0].main == "Clear") {
-            weatherIcon.src = "images/clear.png";
-          } else if (data.weather[0].main == "Rain") {
-            weatherIcon.src = "images/rain.png";
-          } else if (data.weather[0].main == "Drizzle") {
-            weatherIcon.src = "images/drizzle.png";
-          } else if (data.weather[0].main == "Mist") {
-            weatherIcon.src = "images/mist.png";
-          } else if (data.weather[0].main == "Snow") {
-            weatherIcon.src = "images/snow.png";
-          }
-
-          document.querySelector(".weather").style.display = "block";
-          document.querySelector(".error").style.display = "none";
+          btnGeo.classList.remove('active');
+          btnGeo.setAttribute('aria-pressed','false');
+          btnGeo.textContent = 'Use my location';
+          try{
+            localStorage.removeItem('geo');
+            localStorage.removeItem('geoLat');
+            localStorage.removeItem('geoLon');
+          }catch(_){ }
         }
       }
 
-      /*
-    //method - 1
-    //searchBtn.addEventListener("click", ()=>{
-    //    checkWeather(searchBox.value);
-    //});
-    */
-      window.onload = function () {
-        checkWeather("Bangalore");
+      const IN_STATES_TO_CITIES = {
+        "andhra pradesh":["Visakhapatnam","Vijayawada","Guntur"],
+        "arunachal pradesh":["Itanagar"],
+        "assam":["Guwahati","Silchar"],
+        "bihar":["Patna","Gaya"],
+        "chhattisgarh":["Raipur","Bhilai"],
+        "goa":["Panaji","Margao"],
+        "gujarat":["Ahmedabad","Surat","Vadodara","Rajkot"],
+        "haryana":["Gurugram","Faridabad"],
+        "himachal pradesh":["Shimla","Dharamshala"],
+        "jharkhand":["Ranchi","Jamshedpur"],
+        "karnataka":["Bengaluru","Mysuru","Mangalore"],
+        "kerala":["Thiruvananthapuram","Kochi","Kozhikode"],
+        "madhya pradesh":["Indore","Bhopal","Gwalior"],
+        "maharashtra":["Mumbai","Pune","Nagpur","Nashik"],
+        "manipur":["Imphal"],
+        "meghalaya":["Shillong"],
+        "mizoram":["Aizawl"],
+        "nagaland":["Kohima","Dimapur"],
+        "odisha":["Bhubaneswar","Cuttack"],
+        "punjab":["Ludhiana","Amritsar","Jalandhar"],
+        "rajasthan":["Jaipur","Udaipur","Jodhpur"],
+        "sikkim":["Gangtok"],
+        "tamil nadu":["Chennai","Coimbatore","Madurai"],
+        "telangana":["Hyderabad","Warangal"],
+        "tripura":["Agartala"],
+        "uttar pradesh":["Lucknow","Kanpur","Varanasi","Agra"],
+        "uttarakhand":["Dehradun","Haridwar"],
+        "west bengal":["Kolkata","Siliguri"],
+        "delhi":["New Delhi"],
+        "jammu and kashmir":["Srinagar","Jammu"],
+        "ladakh":["Leh"],
+        "andaman and nicobar islands":["Port Blair"],
+        "chandigarh":["Chandigarh"],
+        "dadra and nagar haveli and daman and diu":["Daman","Silvassa"],
+        "lakshadweep":["Kavaratti"],
+        "puducherry":["Puducherry"]
       };
 
-      function handleWeatherCheck() {
-        checkWeather(searchBox.value);
+      function renderSuggestions(items){
+        suggestionsEl.innerHTML = ""; activeIndex = -1;
+        if(!items || items.length===0){ suggestionsEl.style.display = "none"; return; }
+        const frag = document.createDocumentFragment();
+        items.slice(0,8).forEach(it=>{
+          const div = document.createElement("div");
+          div.className = "suggestion-item"; div.setAttribute("role","option");
+          const label = [it.name,it.state,it.country].filter(Boolean).join(", ");
+          div.textContent = label;
+          div.dataset.name = it.name || "";
+          if(it.state) div.dataset.state = it.state;
+          if(it.country) div.dataset.country = it.country;
+          if(it.lat!=null) div.dataset.lat = it.lat;
+          if(it.lon!=null) div.dataset.lon = it.lon;
+          div.addEventListener("mousedown", e=>{ e.preventDefault(); selectSuggestion(it); });
+          frag.appendChild(div);
+        });
+        suggestionsEl.appendChild(frag);
+        suggestionsEl.style.display = "block";
       }
 
-      //method - 2
-      // Click Event
+      async function geocodeCities(query){
+        const q = query.trim(); if(!q){ suggestionsEl.style.display="none"; return; }
+        try{
+          const url = `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(q)}&limit=8&appid=${apikey}`;
+          const res = await fetch(url); if(!res.ok){ suggestionsEl.style.display="none"; return; }
+          const arr = await res.json();
+          let items = (arr||[]).map(it=>({ name: it.name, state: it.state, country: it.country, lat: it.lat, lon: it.lon }));
+          const qLower = q.toLowerCase();
+          const stateMatches = Object.keys(IN_STATES_TO_CITIES).filter(s=>s.startsWith(qLower)).slice(0,2);
+          const synthetic = [];
+          for(const state of stateMatches){
+            const stateLabel = state.replace(/\b\w/g, ch=>ch.toUpperCase());
+            for(const c of IN_STATES_TO_CITIES[state].slice(0,3)) synthetic.push({ name:c, state:stateLabel, country:"IN" });
+          }
+          const inItems = items.filter(it=>it.country==="IN");
+          const nonInItems = items.filter(it=>it.country!=="IN");
+          const rank = it => (it.name||"").toLowerCase().startsWith(qLower)?0:1;
+          inItems.sort((a,b)=>rank(a)-rank(b));
+          const merged = [...synthetic, ...inItems, ...nonInItems];
+          const seen = new Set(); const deduped = [];
+          for(const it of merged){ const key = `${it.name}|${it.state||''}|${it.country||''}`; if(!seen.has(key)){ seen.add(key); deduped.push(it);} }
+          renderSuggestions(deduped);
+        }catch(err){ suggestionsEl.style.display = "none"; }
+      }
+
+      const debouncedGeocode = debounce(geocodeCities, 300);
+
+      function setTheme(condition, data){
+        const themeMap = {
+          "Clear": "theme-clear",
+          "Clouds": "theme-clouds",
+          "Rain": "theme-rain",
+          "Drizzle": "theme-drizzle",
+          "Mist": "theme-mist",
+          "Snow": "theme-snow",
+          "Thunderstorm": "theme-rain"
+        };
+        const animMap = {
+          "Clear": "sunny",
+          "Clouds": "clouds",
+          "Rain": "rain",
+          "Drizzle": "rain",
+          "Thunderstorm": "thunder",
+          "Mist": "mist",
+          "Haze": "mist",
+          "Fog": "mist",
+          "Smoke": "mist",
+          "Snow": "snow",
+          "Squall": "wind",
+          "Tornado": "wind"
+        };
+        // Keep card UI constant; do not alter card theme classes here
+        const anim = animMap[condition] || "sunny";
+        cardEl.setAttribute("data-anim", anim);
+
+        // Body background theme based on weather and local time (day/night)
+        const body = document.body;
+        body.classList.remove("sunny","cloudy","rainy","night","fog");
+        let isNight = false;
+        if (data && data.sys && typeof data.sys.sunrise === 'number' && typeof data.sys.sunset === 'number' && typeof data.dt === 'number') {
+          // OpenWeather: dt is UTC seconds; timezone is shift in seconds
+          const tz = typeof data.timezone === 'number' ? data.timezone : 0;
+          const localTs = data.dt + tz;
+          const sunriseLocal = data.sys.sunrise + tz;
+          const sunsetLocal = data.sys.sunset + tz;
+          isNight = (localTs < sunriseLocal) || (localTs > sunsetLocal);
+        }
+        // Map to body theme
+        let bodyClass = "sunny";
+        const cond = condition || "Clear";
+        if (isNight) {
+          bodyClass = "night";
+        } else if (cond === "Clouds") {
+          bodyClass = "cloudy";
+        } else if (cond === "Rain" || cond === "Drizzle" || cond === "Thunderstorm") {
+          bodyClass = "rainy";
+        } else if (cond === "Mist" || cond === "Haze" || cond === "Fog" || cond === "Smoke") {
+          bodyClass = "fog";
+        } else if (cond === "Snow") {
+          bodyClass = "cloudy"; // snowy looks good on cooler cloudy palette
+        } else {
+          bodyClass = "sunny";
+        }
+        body.classList.add(bodyClass);
+
+        // Drive the new background stage (and remember the last live mode)
+        if (typeof window.setWeather === 'function'){
+          let mode = 'sunny';
+          if (cond === 'Thunderstorm') mode = 'thunder';
+          else if (cond === 'Rain' || cond === 'Drizzle') mode = 'rain';
+          else if (cond === 'Snow') mode = 'snow';
+          else if (cond === 'Clouds' || cond === 'Mist' || cond === 'Haze' || cond === 'Fog' || cond === 'Smoke') mode = 'cloudy';
+          else mode = 'sunny';
+          try{ window.__liveMode = mode; }catch(_){ }
+          window.setWeather(mode);
+        }
+      }
+
+      function highlightActive(){
+        const items = suggestionsEl.querySelectorAll(".suggestion-item");
+        items.forEach((el,i)=>{ if(i===activeIndex) el.classList.add("active"); else el.classList.remove("active"); });
+      }
+
+      function selectSuggestion(item){
+        const label = [item.name,item.state,item.country].filter(Boolean).join(", ");
+        searchBox.value = label; suggestionsEl.style.display = "none";
+        if(item.lat!=null && item.lon!=null) checkWeatherByCoords(item.lat,item.lon); else if(item.name) checkWeather(item.name);
+      }
+
+      window.onload = function(){
+        // Ensure controls are usable
+        btnGeo.disabled = false;
+        setUnits(getUnits()); // keep user units preference
+        // Reset geolocation to off on each refresh (no auto-use of previous state)
+        setGeoActive(false);
+        try{ localStorage.removeItem('geo'); localStorage.removeItem('geoLat'); localStorage.removeItem('geoLon'); }catch(_){ }
+        // Default visuals but no data loaded until user acts (sunny by default)
+        if (typeof setTheme === 'function') { setTheme("Clear", null); }
+        if (typeof window.setWeather === 'function') { window.setWeather('sunny'); }
+        try{ window.__defaultMode = 'sunny'; }catch(_){ }
+        // Card uses base CSS theme; do not force additional theme classes
+        document.querySelector('.weather').style.display = 'none';
+        document.querySelector('.error').style.display = 'none';
+        suggestionsEl.style.display = 'none';
+        searchBox.value = '';
+        const es = document.querySelector('.empty-state'); if (es) es.style.display = 'block';
+        cardEl.classList.add('is-empty');
+        if (testWrap) testWrap.style.display = 'none';
+      };
+
+      function handleWeatherCheck(){ checkWeather(searchBox.value); }
       searchBtn.addEventListener("click", handleWeatherCheck);
 
-      // Keyboard Event (Enter Key)
-      searchBox.addEventListener("keydown", (event) => {
-        if (event.key === "Enter") {
-          handleWeatherCheck();
+      searchBox.addEventListener("keydown", (event)=>{
+        const items = suggestionsEl.querySelectorAll(".suggestion-item");
+        if(event.key==="ArrowDown"){ if(items.length>0){ activeIndex=(activeIndex+1)%items.length; highlightActive(); event.preventDefault(); } }
+        else if(event.key==="ArrowUp"){ if(items.length>0){ activeIndex=(activeIndex-1+items.length)%items.length; highlightActive(); event.preventDefault(); } }
+        else if(event.key==="Enter"){ if(activeIndex>=0 && items[activeIndex]){ const el=items[activeIndex]; selectSuggestion({ name:el.dataset.name||"", state:el.dataset.state, country:el.dataset.country, lat: el.dataset.lat!=null?parseFloat(el.dataset.lat):undefined, lon: el.dataset.lon!=null?parseFloat(el.dataset.lon):undefined }); } else { handleWeatherCheck(); } }
+        else if(event.key==="Escape"){ suggestionsEl.style.display="none"; }
+      });
+
+      searchBox.addEventListener("input", (e)=>{ debouncedGeocode(e.target.value); });
+      document.addEventListener("click", (e)=>{ if(!e.target.closest(".search") && !e.target.closest(".suggestions")) suggestionsEl.style.display="none"; });
+
+      // Return strictly to HOME (empty) state after demo
+      async function restoreToDefaultView(){
+        try{
+          // Clear current readings
+          const cityEl = document.querySelector('.city'); if (cityEl) cityEl.textContent = '';
+          const tempEl = document.querySelector('.temp'); if (tempEl) tempEl.textContent = '';
+          const humEl  = document.querySelector('.humidity'); if (humEl) humEl.textContent = '';
+          const windEl = document.querySelector('.wind'); if (windEl) windEl.textContent = '';
+          if (weatherIcon) weatherIcon.src = 'images/clear.png';
+          // Hide data views, show empty state
+          const es = document.querySelector('.empty-state'); if (es) es.style.display = 'block';
+          document.querySelector('.weather').style.display = 'none';
+          document.querySelector('.error').style.display = 'none';
+          if (testWrap) testWrap.style.display = 'none';
+          // Reset search and suggestions
+          if (searchBox) searchBox.value = '';
+          if (suggestionsEl) suggestionsEl.style.display = 'none';
+          // Reset theme and background back to default sunny home
+          if (typeof setTheme === 'function') setTheme('Clear', null);
+          if (typeof window.setWeather === 'function') window.setWeather(window.__defaultMode || 'sunny');
+          cardEl.classList.add('is-empty');
+          // Scroll to top for visual clarity
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }catch(_){ /* no-op */ }
+      }
+
+      // Test button: play demo sequence (sunny -> cloudy -> rain -> thunder) 5s each, then restore
+      let __isDemoRunning = false;
+      function ensureDemoToast(){
+        let el = document.getElementById('demo-toast');
+        if(!el){
+          el = document.createElement('div');
+          el.id = 'demo-toast';
+          el.setAttribute('role','status');
+          el.textContent = 'This is a demo of animations based on weather conditions.';
+          Object.assign(el.style,{
+            position:'fixed',left:'50%',bottom:'18px',transform:'translateX(-50%)',zIndex:'2147483647',
+            padding:'10px 14px',borderRadius:'12px',color:'#fff',fontSize:'13px',lineHeight:'1.35',letterSpacing:'0.2px',
+            background:'linear-gradient(180deg, rgba(20,24,32,0.78), rgba(20,24,32,0.6))',
+            border:'1px solid rgba(255,255,255,0.22)',backdropFilter:'blur(8px) saturate(120%)',
+            boxShadow:'0 8px 22px rgba(0,0,0,0.28)',textAlign:'center',maxWidth:'min(92vw, 640px)',
+            pointerEvents:'none',opacity:'0',transition:'opacity .18s ease'
+          });
+          document.body.appendChild(el);
+        }
+        return el;
+      }
+      function showDemoToast(){
+        try{
+          const el = ensureDemoToast();
+          el.style.display = 'block';
+          // Force reflow then fade in
+          void el.offsetHeight;
+          el.style.opacity = '1';
+          return el;
+        }catch(e){ console.log('toast failed', e); alert('This is a demo of animations based on weather conditions.'); return null; }
+      }
+      function hideDemoToast(){
+        const el = document.getElementById('demo-toast');
+        if(el){ el.style.opacity='0'; setTimeout(()=>{ el.style.display='none'; }, 220); }
+      }
+      function modeFromAnim(anim){
+        switch(anim){
+          case 'clouds': return 'cloudy';
+          case 'rain': return 'rain';
+          case 'thunder': return 'thunder';
+          case 'snow': return 'snow';
+          default: return 'sunny';
+        }
+      }
+      async function runDemoSequence(){
+        if(__isDemoRunning) return;
+        __isDemoRunning = true;
+        try{
+          const toastEl = showDemoToast();
+          const originalAnim = (cardEl.getAttribute('data-anim')||'sunny');
+          const originalMode = modeFromAnim(originalAnim);
+          const seq = ['sunny','cloudy','rain','snow','thunder'];
+          const wait = (ms)=> new Promise(r=>setTimeout(r, ms));
+          for(const m of seq){
+            if(typeof window.setWeather==='function'){ window.setWeather(m); }
+            if(m==='thunder'){ forceFlash(); setTimeout(forceFlash, 600); }
+            await wait(5000);
+          }
+          const restore = (typeof window.__defaultMode === 'string' && window.__defaultMode) ? window.__defaultMode : originalMode;
+          if(typeof window.setWeather==='function'){ window.setWeather(restore); }
+          await restoreToDefaultView();
+        } finally {
+          hideDemoToast();
+          // Ensure we return to HOME: turn off geo and clear geo flags
+          try{ setGeoActive(false); localStorage.removeItem('geo'); localStorage.removeItem('geoLat'); localStorage.removeItem('geoLon'); }catch(_){}
+          // Safeguard: call restore again shortly after to guarantee UI state
+          try{ setTimeout(()=>{ restoreToDefaultView().catch(()=>{}); }, 50); }catch(_){ }
+          __isDemoRunning = false;
+        }
+      }
+      if (testBtn) { testBtn.addEventListener('click', runDemoSequence); }
+
+      // Toolbar events
+      unitOpts.forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          const u = btn.dataset.u;
+          if (u !== getUnits()){
+            setUnits(u);
+            const currentCity = document.querySelector('.city').textContent;
+            if (currentCity) checkWeather(currentCity);
+          }
+        });
+      });
+
+      btnGeo.addEventListener('click', ()=>{
+        const nowActive = !btnGeo.classList.contains('active');
+        if (nowActive){
+          if (!navigator.geolocation) { alert('Geolocation not supported'); return; }
+          btnGeo.disabled = true; // small UX cue
+          navigator.geolocation.getCurrentPosition(
+            (pos)=>{
+              const la = pos.coords.latitude, lo = pos.coords.longitude;
+              setGeoActive(true);
+              try{ localStorage.setItem('geoLat', la); localStorage.setItem('geoLon', lo);}catch(_){ }
+              checkWeatherByCoords(la, lo);
+              btnGeo.disabled = false;
+            },
+            (_)=>{ btnGeo.disabled = false; setGeoActive(false); alert('Could not get location'); },
+            { enableHighAccuracy: true, timeout: 10000 }
+          );
+        } else {
+          setGeoActive(false);
+          // fallback to last or current city
+          const currentCity = document.querySelector('.city').textContent;
+          const lastCity = localStorage.getItem('lastCity');
+          if (currentCity) checkWeather(currentCity);
+          else if (lastCity) checkWeather(lastCity);
+          else checkWeather('Bangalore');
         }
       });
+    
+    // Weather-stage background system (from your snippet, adapted)
+    (function(){
+      const canvas = document.getElementById('particles');
+      if(!canvas) return; // safety
+      const ctx = canvas.getContext('2d', { alpha: true });
+      let W = canvas.width = window.innerWidth;
+      let H = canvas.height = window.innerHeight;
+      const DPR = Math.min(window.devicePixelRatio || 1, 2);
+      function resize(){
+        W = canvas.width = Math.floor(window.innerWidth * DPR);
+        H = canvas.height = Math.floor(window.innerHeight * DPR);
+        canvas.style.width = window.innerWidth + 'px';
+        canvas.style.height = window.innerHeight + 'px';
+      }
+      window.addEventListener('resize', resize); resize();
+
+      let particles = []; let weather = 'sunny'; const MAX_PARTICLES = 1400;
+      function makeRainDrop(){ return { x: Math.random()*W, y: Math.random()*-H, len: 14+Math.random()*18, speed: 8+Math.random()*8, drift: -1.5+Math.random()*3 }; }
+      function makeSnowFlake(){ return { x: Math.random()*W, y: Math.random()*-H, r: 1+Math.random()*2.2, speed: 0.7+Math.random()*1.0, drift: -0.6+Math.random()*1.2, wobble: Math.random()*Math.PI*2 }; }
+      function populateParticles(){
+        particles.length=0;
+        if(weather==='rain'||weather==='thunder'){
+          const n=Math.min(MAX_PARTICLES, Math.floor(W*0.9));
+          for(let i=0;i<n;i++) particles.push(makeRainDrop());
+        } else if(weather==='snow'){
+          const n=Math.min(800, Math.floor(W/3));
+          for(let i=0;i<n;i++) particles.push(makeSnowFlake());
+        }
+      }
+
+      const cloudsRoot = document.getElementById('clouds');
+      function makeClouds(level=1){
+        if(!cloudsRoot) return;
+        cloudsRoot.innerHTML='';
+        // Track-based pattern to avoid overlap: evenly spaced lanes
+        const tracks = [];
+        if(level>=3){ tracks.push({ top: 12, count: 4, speed:[34,50], w:[300,380] }); tracks.push({ top: 24, count: 4, speed:[28,42], w:[280,360] }); }
+        else if(level===2){ tracks.push({ top: 16, count: 3, speed:[36,52], w:[290,360] }); tracks.push({ top: 28, count: 3, speed:[30,44], w:[270,340] }); }
+        else { tracks.push({ top: 18, count: 2, speed:[38,56], w:[280,340] }); tracks.push({ top: 30, count: 2, speed:[32,46], w:[260,320] }); }
+        for(const t of tracks){
+          for(let i=0;i<t.count;i++){
+            const c = document.createElement('div'); c.className = 'cloud';
+            const w = t.w[0] + Math.random()*(t.w[1]-t.w[0]);
+            c.style.setProperty('--w', Math.round(w)+'px');
+            const jitterY = (Math.random()*2 - 1); // +/-1%
+            c.style.setProperty('--top', (t.top + jitterY)+'%');
+            const sp = t.speed[0] + Math.random()*(t.speed[1]-t.speed[0]);
+            c.style.setProperty('--speed', sp+'s');
+            // distribute across the path using negative delay so they are spaced
+            const phase = -((i/t.count) * sp) - Math.random()*sp*0.3;
+            c.style.animationDelay = phase+'s';
+            c.style.opacity = String(0.62 + Math.random()*0.16);
+            c.style.zIndex = '1';
+            cloudsRoot.appendChild(c);
+          }
+        }
+      }
+
+      const fogEl = document.getElementById('fog');
+      const flashEl = document.getElementById('flash');
+      const sunBeamsEl = document.getElementById('sunbeams');
+      const sunDiskEl = document.getElementById('sun');
+
+      function draw(){
+        ctx.clearRect(0,0,W,H);
+        if(weather==='rain'||weather==='thunder'){
+          ctx.strokeStyle='rgba(200,220,255,0.85)';
+          ctx.lineWidth=Math.max(1.75*DPR, 1.25);
+          ctx.lineCap='round';
+          for(const p of particles){
+            ctx.beginPath();
+            ctx.moveTo(p.x,p.y);
+            ctx.lineTo(p.x+p.drift,p.y+p.len*2);
+            ctx.stroke();
+            p.x+=p.drift; p.y+=p.speed*2.6;
+            if(p.y>H+20){ p.x=Math.random()*W; p.y=Math.random()*-20; }
+          }
+        } else if(weather==='snow'){
+          ctx.fillStyle='rgba(255,255,255,0.9)';
+          for(const p of particles){
+            p.wobble+=0.02;
+            p.x += p.drift + Math.sin(p.wobble)*0.3;
+            p.y += p.speed;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.r*DPR, 0, Math.PI*2);
+            ctx.fill();
+            if(p.y>H+5){ p.x=Math.random()*W; p.y=Math.random()*-10; }
+          }
+        }
+        requestAnimationFrame(draw);
+      }
+      requestAnimationFrame(draw);
+
+      function lightning(){
+        if(weather!=='thunder') return;
+        if(Math.random()<0.02){
+          if(flashEl){
+            flashEl.style.opacity='.9';
+            setTimeout(()=> flashEl.style.opacity='0', 90);
+            if(Math.random()<0.45){ setTimeout(()=>{ flashEl.style.opacity='.6'; setTimeout(()=> flashEl.style.opacity='0', 80); },160); }
+          }
+        }
+        setTimeout(lightning, 100+Math.random()*360);
+      }
+      // Force an immediate lightning flash (used by demo sequence)
+      function forceFlash(){
+        if(!flashEl) return;
+        flashEl.style.opacity = '.95';
+        setTimeout(()=>{
+          flashEl.style.opacity = '0';
+          // small afterglow
+          setTimeout(()=>{ flashEl.style.opacity = '.6'; setTimeout(()=> flashEl.style.opacity='0', 80); }, 120);
+        }, 90);
+      }
+
+      function setWeather(mode='sunny'){
+        weather = mode;
+        if(sunBeamsEl) sunBeamsEl.style.opacity = (mode==='sunny')? 1 : 0;
+        if(sunDiskEl) sunDiskEl.style.opacity = (mode==='sunny')? 1 : 0;
+        if(fogEl) fogEl.style.opacity = (mode==='cloudy')? .12 : (mode==='snow'? .10 : (mode==='rain'? .06 : (mode==='thunder'? .08 : 0)));
+        if(flashEl) flashEl.style.opacity = 0;
+        if(mode==='cloudy') makeClouds(3); else if(mode==='rain') makeClouds(2); else if(mode==='thunder') makeClouds(2); else if(mode==='snow') makeClouds(1); else if(cloudsRoot) cloudsRoot.innerHTML='';
+        populateParticles();
+        if(mode==='thunder'){ lightning(); }
+      }
+      window.setWeather = setWeather;
+      setWeather('sunny');
+    })();
     </script>
+
+    
   </body>
 </html>
