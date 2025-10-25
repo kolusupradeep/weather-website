@@ -119,6 +119,15 @@ body {
     align-items: center;
     justify-content: center;
     padding: 24px;
+    padding-left: max(24px, env(safe-area-inset-left));
+    padding-right: max(24px, env(safe-area-inset-right));
+    padding-top: max(24px, env(safe-area-inset-top));
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+}
+
+/* Use small viewport units on mobile to avoid Safari URL bar jump */
+@supports (height: 100svh){
+  body{ min-height: 100svh; }
 }
 
 /* Weather-driven themes */
@@ -186,6 +195,7 @@ body::after {
     justify-content: space-between;
     position: relative;
     z-index: 1;
+    gap: 10px;
 }
 
 .search input {
@@ -195,7 +205,7 @@ body::after {
     padding: 10px 25px;
     height: 60px;
     border-radius: 30px;
-    flex: 1;
+    flex: 1 1 auto;
     margin-right: 16px;
     font-size: 18px;
     text-align: center; /* center placeholder */
@@ -219,6 +229,7 @@ body::after {
     border-radius: 50%;
     width: 60px;
     height: 60px;
+    flex: 0 0 auto; /* prevent shrink on narrow screens */
     cursor: pointer;
     transition: background 0.15s ease;
 }
@@ -610,17 +621,56 @@ body::after {
 @media (max-width: 480px){
   body{ padding: 16px; }
   .card{
-    width: 90vw;
+    width: 92vw;
     margin: 0 auto;
-    padding: 28px 22px;
+    padding: 22px 18px;
   }
-  .toolbar{ gap: 8px; }
+  .toolbar{ gap: 8px; flex-wrap: wrap; justify-content: space-between; }
+  .unit-toggle{ transform: scale(.95); }
   .btn-geo{ font-size: 12px; padding: 6px 10px; }
-  .search input{ height: 54px; font-size: 16px; }
-  .search button{ width: 54px; height: 54px; }
-  .weather h2{ font-size: 32px; }
-  .details{ padding: 0 10px; margin-top: 32px; }
+  .search{ gap: 8px; }
+  .search input{ height: 50px; font-size: 16px; padding: 10px 16px; margin-right: 0; }
+  .search button{ width: 50px; height: 50px; }
+  .weather-icon{ width: 140px; margin-top: 16px; }
+  .weather h1{ font-size: 52px; }
+  .weather h2{ font-size: 26px; margin-top: -6px; }
+  .details{ padding: 0 6px; margin-top: 22px; gap: 16px; flex-direction: column; }
+  .col img{ width: 38px; }
+  .humidity, .wind{ font-size: 24px; }
+  .test-wrap{ margin-top: 10px; }
+  .btn-test{ font-size: 13px; padding: 9px 14px; }
 }
+
+/* Tablet and small laptop tuning */
+@media (max-width: 768px){
+  body{ padding: 18px; }
+  .card{ width: 92vw; padding: 28px 24px; }
+  .toolbar{ gap: 10px; flex-wrap: wrap; }
+  .search input{ height: 56px; font-size: 17px; }
+  .search button{ width: 56px; height: 56px; }
+  .weather h1{ font-size: 68px; }
+  .weather h2{ font-size: 34px; }
+}
+
+/* Very small phones (e.g., 320–360px width) */
+@media (max-width: 380px){
+  .card{ width: 94vw; padding: 18px 14px; border-radius: 16px; }
+  .toolbar{ gap: 6px; }
+  .unit-toggle .unit-opt{ padding: 6px 10px; font-size: 12px; }
+  .btn-geo{ font-size: 11px; padding: 6px 8px; }
+  .search{ gap: 6px; }
+  .search input{ height: 46px; font-size: 16px; border-radius: 24px; margin-right: 0; }
+  .search button{ width: 46px; height: 46px; }
+  .weather-icon{ width: 120px; }
+  .weather h1{ font-size: 46px; }
+  .weather h2{ font-size: 24px; }
+  .col img{ width: 34px; padding: 5px; }
+  .humidity, .wind{ font-size: 22px; }
+}
+
+/* iOS Safari tap highlight and text size adjustment */
+* { -webkit-tap-highlight-color: rgba(0,0,0,0); }
+html { -webkit-text-size-adjust: 100%; }
 
 /* ===== Centered test button (below card) ===== */
 .test-wrap{
