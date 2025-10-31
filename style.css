@@ -1,9 +1,208 @@
+/* === REALLY FINAL OVERRIDE (placed last) === */
+html body .card,
+body .container .card,
+.card{
+  width: 340px !important;
+  max-width: 340px !important;
+  height: 500px !important;
+  max-height: 500px !important;
+  transform: none !important;
+  margin: 0 auto !important;
+  overflow: auto !important;
+}
+.card:hover{ transform: none !important; }
+@media (max-width: 480px){
+  html body .card,
+  body .container .card,
+  .card{
+    width: 340px !important;
+    max-width: 340px !important;
+    height: 500px !important;
+    max-height: 500px !important;
+    transform: none !important;
+  }
+}
+/* ===== FINAL OVERRIDE: force exact card size and no scaling ===== */
+html body .card,
+body .container .card,
+.card{
+  width: 340px !important;
+  max-width: 340px !important;
+  height: 500px !important;
+  max-height: 500px !important;
+  transform: none !important;
+  overflow: auto !important;
+  margin: 0 auto !important;
+}
+
+@media (max-width: 480px){
+  html body .card,
+  body .container .card,
+  .card{
+    width: 340px !important;
+    max-width: 340px !important;
+    height: 500px !important;
+    max-height: 500px !important;
+    transform: none !important;
+  }
+}
+/* ===== Fixed card dimensions (final override) ===== */
+.card{
+  width: 340px !important;
+  max-width: 340px !important;
+  height: 500px !important;
+  max-height: 500px !important;
+  transform: none !important; /* no scaling, exact size */
+  margin: 0 auto !important;
+  overflow: auto; /* scroll if content exceeds 500px */
+}
+
+@media (max-width: 480px){
+  .card{
+    width: 340px !important;
+    max-width: 340px !important;
+    height: 500px !important;
+    max-height: 500px !important;
+    transform: none !important;
+  }
+}
+/* ===== Center layout ===== */
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #c7eaff 0%, #ffffff 100%);
+  background-repeat: no-repeat;
+  background-size: cover;
+  min-height: 100vh;
+  overflow: hidden; /* no extra scroll */
+}
+
+/* ===== Default card style (for larger screens) ===== */
+.card {
+  width: clamp(280px, 90vw, 350px);
+  max-width: 350px;
+  background: linear-gradient(180deg, #5db8fe, #389ff5);
+  border-radius: 20px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.15);
+  padding: 25px 20px;
+  text-align: center;
+  color: white;
+  transform-origin: center center;
+  transform: scale(0.95);
+  transition: transform 0.3s ease;
+}
+
+/* ===== Hover effect (desktop only) ===== */
+@media (hover: hover) {
+  .card:hover {
+    transform: scale(1);
+  }
+}
+
+/* ===== Mobile view: reduce size by 40% and center ===== */
+@media (max-width: 480px) {
+  body {
+    align-items: center;
+    justify-content: center;
+  }
+
+  .card {
+    transform: scale(0.6); /* 40% smaller than original */
+    transform-origin: center center;
+    width: 100%;
+    max-width: 340px;
+    padding: 16px;
+    margin: 0 auto;
+  }
+}
+/* ===== Center page + show background ===== */
+html, body {
+  height: 100% !important;
+  margin: 0 !important;
+}
+body {
+  min-height: 100dvh !important;
+  display: grid !important;
+  place-items: center !important;       /* vertical + horizontal center */
+  padding: 24px !important;             /* breathing room so shadows aren't cut */
+  background: linear-gradient(180deg, #c7eaff 0%, #ffffff 100%) !important;
+  background-repeat: no-repeat !important;
+  background-size: cover !important;
+}
+
+/* ===== Normalize the card (single source of truth) ===== */
+.card {
+  /* Size */
+  width: clamp(280px, 90vw, 350px) !important;
+  max-width: 350px !important;
+  height: auto !important;
+  max-height: none !important;          /* stop internal short card */
+  overflow: visible !important;         /* no inner scroll */
+  
+  /* Spacing & look */
+  margin: 0 auto !important;
+  padding: 24px 20px !important;
+  border-radius: 20px !important;
+  box-shadow: 0 12px 28px rgba(0,0,0,.15) !important;
+  background: linear-gradient(180deg, #5db8fe, #389ff5) !important;
+  color: #fff !important;
+  text-align: center !important;
+
+  /* Consistent transform */
+  transform: scale(0.95) !important;
+  transform-origin: center center !important;
+  transition: transform .25s ease, box-shadow .25s ease !important;
+}
+
+/* Optional hover – keep it subtle and centered */
+.card:hover {
+  transform: scale(1) !important;
+  box-shadow: 0 15px 35px rgba(0,0,0,.2) !important;
+}
+
+/* ===== Kill the conflicting rules ===== */
+/* These earlier groups were forcing width:100% and the short max-height */
+.weather-card, .panel {
+  /* keep their look if you use them, but do NOT force full-width or inner scroll */
+  width: auto !important;
+  max-width: none !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+/* Media queries – keep behavior consistent on phones */
+@media (max-width: 480px) {
+  .card {
+    width: clamp(280px, 92vw, 350px) !important;
+    padding: 22px 16px !important;
+    transform: scale(0.93) !important;  /* smaller but still centered */
+  }
+}
+
+/* Neutralize wrappers if they force full-viewport */
+.app, .container, .wrapper, .screen, .page, #app, #root {
+  min-height: unset !important;
+  height: auto !important;
+}
 *{
     margin: 0;
     padding: 0;
     font-family: 'poppins', sans-serif;
     box-sizing: border-box;
 }
+
+/* Prevent any horizontal scroll and visual edge clipping on mobile due to wide animated layers */
+html, body{ max-width: 100%; overflow-x: clip; }
+/* Fallback for older browsers */
+@supports not (overflow-x: clip){ html, body{ overflow-x: hidden; } }
 
 /* ================= Animations Layer ================= */
 .anim-layer{
@@ -112,13 +311,15 @@
 /* Base background (softer) */
 body {
     min-height: 100dvh;
+    height: 100svh; /* ensure full viewport used; stable on mobile */
     margin: 0;
-    background: linear-gradient(180deg, #ffd36b 0%, #ff8a3d 50%, #4fb3ff 100%);
+    /* Soft sky gradient background */
+    background: linear-gradient(to bottom, #aee1f9, #ffffff);
     background-attachment: fixed;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
+    display: flex;               /* center layout */
+    align-items: center;         /* vertical center */
+    justify-content: center;     /* horizontal center */
+    padding: 24px;               /* breathing room */
     padding-left: max(24px, env(safe-area-inset-left));
     padding-right: max(24px, env(safe-area-inset-right));
     padding-top: max(24px, env(safe-area-inset-top));
@@ -163,17 +364,18 @@ body::after {
 
 /* (demo-note removed to restore original homepage UI) */
 
-.card {
-    width: 90%;
-    max-width: 470px;
-    /* Original stronger blue/cyan gradient (restored) */
-    background: linear-gradient(135deg, #36D1DC 0%, #2F80ED 100%);
+.card{
+    width: clamp(260px, 90vw, 350px);
+    max-width: 350px;
+    /* Light-to-deeper blue gradient inside the card */
+    background: linear-gradient(180deg, #5db8fe, #389ff5);
     color: #fff;
     margin: 0 auto;
     border-radius: 20px;
-    padding: 40px 35px;
+    padding: 28px 22px;
     text-align: center;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    /* Elevated shadow */
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.18);
     filter: brightness(1.02);
     border: 1px solid rgba(255,255,255,.25);
     position: relative; /* for animation layer */
@@ -181,6 +383,10 @@ body::after {
     overflow: hidden;
     transform-origin: top center;
     transition: transform .22s ease;
+    /* Ensure the card never overflows screen height; allow internal scrolling if needed */
+    max-height: calc(100svh - 48px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 /* Weather theme variants applied from JS */
@@ -198,6 +404,8 @@ body::after {
     position: relative;
     z-index: 1;
     gap: 10px;
+    margin-bottom: 14px; /* give breathing room above results */
+    flex-wrap: nowrap; /* keep input and button on one row */
 }
 
 .search input {
@@ -214,6 +422,7 @@ body::after {
     transition: box-shadow 0.2s ease, transform 0.15s ease;
     background: #ffffff;
     box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+    min-width: 0; /* allow shrinking on narrow devices */
 }
 
 .search input::placeholder{ color: rgba(0,0,0,0.45); font-size: 16px; }
@@ -269,7 +478,7 @@ body::after {
 }
 
 .weather-icon{
-    width: 170px;
+    width: clamp(120px, 18vw, 170px);
     margin-top: 30px;
 }
 
@@ -279,12 +488,12 @@ body::after {
 }
 
 .weather h1{
-    font-size: 80px;
+    font-size: clamp(42px, 6vw, 80px);
     font-weight: 700; /* bolder for emphasis */
 }
 
 .weather h2{
-    font-size: 45px;
+    font-size: clamp(22px, 4.2vw, 45px);
     font-weight: 300; /* lighter city name */
     margin-top: -10px;
 }
@@ -313,7 +522,7 @@ body::after {
 }
 
 .humidity, .wind{
-    font-size: 28px;
+    font-size: clamp(22px, 3.8vw, 28px);
     margin-top: -6px;
 }
 
@@ -321,6 +530,11 @@ body::after {
     display: none;
     position: relative;
     z-index: 1;
+    margin-top: 18px; /* push weather block down a bit by default */
+    /* Responsive scale only for the displayed weather block */
+    width: clamp(220px, 28vw, 280px);
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .error{
@@ -428,6 +642,12 @@ body::after {
 /* clouds container */
 #weather-stage .clouds{ overflow: visible; opacity: 0.85; filter: drop-shadow(0 2px 6px rgba(0,0,0,.35)); }
 
+/* Prevent any child from causing horizontal scroll on mobile */
+#weather-stage, #weather-stage *{
+  max-width: 100vw !important;
+  overflow-x: hidden !important;
+}
+
 /* individual cloud puffs (override generic .cloud) */
 #weather-stage .cloud{
   position: absolute;
@@ -445,7 +665,7 @@ body::after {
   will-change: transform;
 }
 
-@keyframes drift{ from{ transform: translateX(0); } to { transform: translateX(180vw); } }
+@keyframes drift{ from{ transform: translateX(0); } to { transform: translateX(120vw); } }
 
 /* overlays */
 #weather-stage .fog{
@@ -621,22 +841,27 @@ body::after {
 @media (prefers-reduced-motion: reduce){ .bg, .bg *{ animation:none !important; } }
 
 @media (max-width: 480px){
-  body{ padding: 16px; }
+  body{ padding: 8px; }
   .card{
-    width: 92vw;
+    width: 100%;
+    max-width: 440px;
     margin: 0 auto;
-    padding: 22px 18px;
-    transform: scale(.85); /* 15% smaller on phones */
+    padding: 20px 16px;
+    /* remove scale to avoid blur/clipping on phones */
+    transform: none;
+    overflow-x: hidden;
+    overflow-y: auto;
   }
   .toolbar{ gap: 8px; flex-wrap: wrap; justify-content: space-between; }
   .unit-toggle{ transform: scale(.95); }
   .btn-geo{ font-size: 12px; padding: 6px 10px; }
-  .search{ gap: 8px; }
+  .search{ gap: 8px; margin-bottom: 24px; }
   .search input{ height: 50px; font-size: 16px; padding: 10px 16px; margin-right: 0; }
   .search button{ width: 50px; height: 50px; }
   .weather-icon{ width: 140px; margin-top: 16px; }
-  .weather h1{ font-size: 52px; }
-  .weather h2{ font-size: 26px; margin-top: -6px; }
+  .weather h1{ font-size: 48px; }
+  .weather h2{ font-size: 24px; margin-top: -6px; }
+  .weather{ margin-top: 32px; }
   .details{ padding: 0 6px; margin-top: 22px; gap: 16px; flex-direction: column; }
   .col img{ width: 38px; }
   .humidity, .wind{ font-size: 24px; }
@@ -657,16 +882,17 @@ body::after {
 
 /* Very small phones (e.g., 320–360px width) */
 @media (max-width: 380px){
-  .card{ width: 94vw; padding: 18px 14px; border-radius: 16px; }
+  .card{ width: 100%; max-width: 420px; padding: 16px 12px; border-radius: 16px; transform: none; }
   .toolbar{ gap: 6px; }
   .unit-toggle .unit-opt{ padding: 6px 10px; font-size: 12px; }
   .btn-geo{ font-size: 11px; padding: 6px 8px; }
-  .search{ gap: 6px; }
+  .search{ gap: 6px; margin-bottom: 26px; }
   .search input{ height: 46px; font-size: 16px; border-radius: 24px; margin-right: 0; }
   .search button{ width: 46px; height: 46px; }
   .weather-icon{ width: 120px; }
-  .weather h1{ font-size: 46px; }
-  .weather h2{ font-size: 24px; }
+  .weather h1{ font-size: 42px; }
+  .weather h2{ font-size: 22px; }
+  .weather{ margin-top: 36px; }
   .col img{ width: 34px; padding: 5px; }
   .humidity, .wind{ font-size: 22px; }
 }
@@ -709,3 +935,121 @@ html { -webkit-text-size-adjust: 100%; }
 }
 .btn-test:active{ transform: translateY(1px); }
 .btn-test:focus-visible{ outline: none; box-shadow: 0 0 0 3px rgba(47,128,237,0.35); }
+
+/* ----- HARD RESET & BACKGROUND ----- */
+html, body {
+  margin: 0 !important;
+  padding: 0 !important;
+  height: 100% !important;             /* ensure background can paint full page */
+}
+
+body {
+  min-height: 100dvh !important;       /* mobile-safe viewport height */
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: linear-gradient(180deg, #aee1f9 0%, #ffffff 100%) !important;
+  background-attachment: fixed !important;  /* keeps gradient visible on scroll */
+  background-repeat: no-repeat !important;
+  background-size: cover !important;
+  overflow: auto !important;            /* allow page to scroll if content is tall */
+}
+
+/* ----- CONTAINERS THAT MAY BE FULL-SCREEN ----- */
+/* cover common names your layout might use; add yours if different */
+.app, .container, .wrapper, .screen, .page, #app, #root {
+  width: 100% !important;
+  max-width: 340px !important;          /* align with desired card width */
+  margin: 24px auto !important;         /* center + breathing room */
+  background: transparent !important;   /* let the page background show */
+  box-sizing: border-box !important;
+}
+
+/* if your main UI card has a solid background, keep it but not full-screen */
+.weather-card, .card, .panel {
+  width: 100% !important;
+  max-width: 340px !important;
+  border-radius: 20px !important;
+  box-shadow: 0 12px 28px rgba(0,0,0,.15) !important;
+  padding: 20px !important;
+  margin: 0 auto !important;
+  background: linear-gradient(180deg, #5db8fe, #389ff5) !important;
+  /* do not force transform here to allow hover effects elsewhere */
+}
+
+/* prevent rogue full-viewport rules from taking over */
+.app, .container, .wrapper, .screen, .page, .weather-card, .card, .panel {
+  height: auto !important;
+  min-height: unset !important;
+  max-height: none !important;
+}
+
+/* responsive tweak */
+/* (removed empty media query) */
+
+/* Centering and background */
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #aee1f9 0%, #ffffff 100%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+  background-size: cover;
+  overflow: auto;
+}
+
+/* Ensure main wrapper centers content vertically too */
+.container{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+/* Card base and hover effect for balanced scale on desktop */
+.card{
+  transform: scale(0.95);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.card:hover{
+  transform: scale(1);
+  box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+}
+
+/* Smaller phones */
+@media (max-width: 400px){
+  .card{ transform: scale(0.9); padding: 20px 15px; }
+}
+
+/* ===== ABSOLUTE LAST OVERRIDE (appended at end) ===== */
+/* Home (default) state: flexible card sizing */
+.card.is-empty{
+  width: clamp(280px, 92vw, 350px) !important;
+  max-width: 350px !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  transform: none !important;
+}
+
+/* Displayed weather only: base size 340x600 and scale to fit viewport on mobile */
+html body .card:not(.is-empty),
+body .container .card:not(.is-empty),
+.card:not(.is-empty){
+width: 340px !important;
+max-width: 340px !important;
+height: 600px !important;
+max-height: 600px !important;
+margin: 0 auto !important;
+overflow: auto !important; /* allow internal scroll if content exceeds */
+transform: none !important;
+}
+.card:not(.is-empty):hover{ transform: none !important; }
